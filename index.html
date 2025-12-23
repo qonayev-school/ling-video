@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ling+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #ffffff;
+            --accent-red: #e50914;
+            --accent-yellow: #f5c518;
+            --accent-blue: #0067e3;
+        }
+
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-color); color: var(--text-color); overflow: hidden; }
+
+        /* Эффект Blur при открытии плеера */
+        #mainContent { transition: filter 0.5s ease, transform 0.5s ease; width: 100%; height: 100vh; }
+        body.player-open #mainContent { filter: blur(20px); transform: scale(0.97); }
+
+        .hero-section {
+            position: relative; width: 100%; height: 100vh;
+            background-position: center center; background-size: cover;
+            transition: 0.8s ease-in-out; display: flex; align-items: center;
+        }
+        .hero-section::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to right, rgba(0,0,0,0.95) 15%, transparent 85%);
+            z-index: 1;
+        }
+
+        .content-container { position: relative; padding-left: 5%; z-index: 2; width: 60%; }
+        h1 { font-size: clamp(35px, 7vw, 75px); font-weight: 900; margin: 0 0 25px 0; line-height: 0.9; text-transform: uppercase; letter-spacing: -2px; }
+
+        /* Реакции */
+        .stats-bar { display: flex; align-items: center; gap: 12px; font-size: 13px; margin-bottom: 15px; color: #ccc; }
+        .reactions-icons { display: flex; }
+        .icon-circle { 
+            width: 28px; height: 28px; border-radius: 50%; border: 2px solid #000; margin-left: -8px; 
+            display: flex; align-items: center; justify-content: center; font-size: 14px;
+            transition: 0.3s; cursor: pointer;
+        }
+        .stats-bar.has-voted .icon-circle:not(.selected) { filter: grayscale(1) opacity(0.3); }
+        .icon-circle.selected { transform: scale(1.3); z-index: 10 !important; border-color: white; }
+
+        .btn { padding: 14px 28px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; margin-right: 10px; }
+        .btn-watch { background: var(--accent-blue); color: white; }
+
+        /* Боковая панель */
+        .sidebar {
+            position: absolute; right: 0; top: 0; width: 280px; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(30px);
+            padding: 20px; display: flex; flex-direction: column; gap: 15px; justify-content: center; z-index: 3;
+            border-left: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .thumbnail {
+            position: relative; 
+            width: 100%; 
+            aspect-ratio: 16 / 9;
+            border-radius: 8px; 
+            overflow: hidden;
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            filter: grayscale(0.7);
+        }
+        .thumbnail:hover { filter: grayscale(0.3); }
+        .thumbnail.active { border-color: var(--accent-blue); filter: grayscale(0); transform: translateX(-10px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .thumb-label { 
+            position: absolute; 
+            bottom: 0; left: 0; right: 0;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000, 0 0 1em #000;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            line-height: 1.2;
+        }
+
+        /* Плеер */
+        .video-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: none; z-index: 1000; justify-content: center; align-items: center;
+        }
+        .video-container { position: relative; width: 80%; max-width: 900px; border-radius: 15px; overflow: hidden; background: #000; box-shadow: 0 0 100px rgba(0,0,0,1); }
+        video { width: 100%; display: block; aspect-ratio: 16 / 9; }
+        .player-ui { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px; display: flex; align-items: center; gap: 15px; background: linear-gradient(transparent, #000); opacity: 0; transition: 0.3s; }
+        .video-container:hover .player-ui { opacity: 1; }
+        .progress-bar { flex-grow: 1; height: 4px; background: rgba(255,255,255,0.2); cursor: pointer; position: relative; }
+        .progress-fill { height: 100%; background: var(--accent-blue); width: 0%; }
+        .close-player { position: absolute; top: 20px; right: 30px; color: white; background: none; border: none; font-size: 35px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="videoOverlay" class="video-overlay">
+        <button class="close-player" onclick="closeVideo()">✕</button>
+        <div class="video-container">
+            <video id="mainVideo">
+                <source id="videoSource" src="video1.mp4" type="video/mp4">
+            </video>
+            <div class="player-ui">
+                <button style="background:none; border:1px solid white; color:white; cursor:pointer;" onclick="togglePlay()">PLAY/PAUSE</button>
+                <div class="progress-bar" id="progressContainer"><div class="progress-fill" id="progressFill"></div></div>
+                <button style="background:none; border:none; color:white; cursor:pointer;" onclick="goFullScreen()">[ FULL SCREEN ]</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainContent">
+        <div class="hero-section" id="mainBg">
+            <div class="content-container">
+                <div class="stats-bar" id="statsBar">
+                    <div class="reactions-icons">
+                        <div class="icon-circle" data-type="thumb" style="background: #2196f3; z-index: 3;" onclick="toggleVote(this, 'thumb')">👍</div>
+                        <div class="icon-circle" data-type="heart" style="background: #e50914; z-index: 2;" onclick="toggleVote(this, 'heart')">❤️</div>
+                        <div class="icon-circle" data-type="fire" style="background: #f5c518; z-index: 1;" onclick="toggleVote(this, 'fire')">🔥</div>
+                    </div>
+                    <span id="reactionsCount">180</span><span> Reactions</span>
+                    <span id="viewsCount">• 21.4K Views</span>
+                </div>
+
+                <h1 id="mainTitle">Parts of speech</h1>
+                <button class="btn btn-watch" onclick="openVideo()">▶ WATCH NOW</button>
+            </div>
+
+            <div class="sidebar">
+                <div class="thumbnail active" data-id="1" data-title="Parts of speech" data-likes="180" data-views="21.4K" data-img="video1.png" data-video="video1.mp4">
+                    <img src="video1.png">
+                    <div class="thumb-label">Parts of speech</div>
+                </div>
+                <div class="thumbnail" data-id="2" data-title="Modal verbs" data-likes="450" data-views="50.1K" data-img="video2.png" data-video="video2.mp4">
+                    <img src="video2.png">
+                    <div class="thumb-label">Modal verbs</div>
+                </div>
+                <div class="thumbnail" data-id="3" data-title="Transitive and intrasitive verbs in English" data-likes="320" data-views="15.8K" data-img="video3.png" data-video="video3.mp4">
+                    <img src="video3.png">
+                    <div class="thumb-label">Transitive and intrasitive verbs</div>
+                </div>
+                <div class="thumbnail" data-id="4" data-title="Cleft Sentences - Emphasizing Elements in English" data-likes="940" data-views="102K" data-img="video4.png" data-video="video4.mp4">
+                    <img src="video4.png">
+                    <div class="thumb-label">Cleft sentences</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('mainVideo');
+        const videoSource = document.getElementById('videoSource');
+        const progressFill = document.getElementById('progressFill');
+        let currentMovieId = "1";
+        let votingData = { "1": {v:null}, "2": {v:null}, "3": {v:null}, "4": {v:null} };
+
+        function openVideo() { document.getElementById('videoOverlay').style.display = 'flex'; document.body.classList.add('player-open'); video.play(); }
+        function closeVideo() { document.getElementById('videoOverlay').style.display = 'none'; document.body.classList.remove('player-open'); video.pause(); }
+        function togglePlay() { video.paused ? video.play() : video.pause(); }
+        
+        function goFullScreen() {
+            if (video.requestFullscreen) video.requestFullscreen();
+            else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+            else if (video.msRequestFullscreen) video.msRequestFullscreen();
+        }
+
+        video.addEventListener('timeupdate', () => progressFill.style.width = (video.currentTime / video.duration) * 100 + '%');
+
+        function toggleVote(el, type) {
+            let movie = votingData[currentMovieId];
+            let likes = parseInt(document.getElementById('reactionsCount').innerText);
+            if(movie.v === type) { movie.v = null; likes--; el.classList.remove('selected'); document.getElementById('statsBar').classList.remove('has-voted'); }
+            else { if(!movie.v) likes++; document.querySelectorAll('.icon-circle').forEach(i => i.classList.remove('selected')); movie.v = type; el.classList.add('selected'); document.getElementById('statsBar').classList.add('has-voted'); }
+            document.getElementById('reactionsCount').innerText = likes;
+            document.querySelector(`.thumbnail[data-id="${currentMovieId}"]`).dataset.likes = likes;
+        }
+
+        document.querySelectorAll('.thumbnail').forEach(t => {
+            t.addEventListener('click', () => {
+                document.querySelector('.thumbnail.active').classList.remove('active');
+                t.classList.add('active');
+                currentMovieId = t.dataset.id;
+                
+                // Обновляем UI
+                document.getElementById('mainBg').style.backgroundImage = `url(${t.dataset.img})`;
+                document.getElementById('mainTitle').innerText = t.dataset.title;
+                document.getElementById('reactionsCount').innerText = t.dataset.likes;
+                document.getElementById('viewsCount').innerText = `• ${t.dataset.views} Views`;
+
+                // Меняем источник видео и перезагружаем
+                videoSource.src = t.dataset.video;
+                video.load(); 
+                
+                // Если плеер открыт, сразу запускаем новое видео
+                if (document.body.classList.contains('player-open')) {
+                    video.play();
+                }
+            });
+        });
+
+        document.getElementById('mainBg').style.backgroundImage = "url('video1.png')";
+    </script>
+</body>
+</html>
